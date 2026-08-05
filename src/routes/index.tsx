@@ -1,6 +1,7 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { FALLBACK_BOOKS } from "@/lib/books-fallback";
 import { getBookPool } from "@/lib/books.functions";
 import type { Book } from "@/lib/books.server";
 
@@ -61,7 +62,8 @@ type Stage = "intro" | "playing" | "summary";
 
 function RatherPage() {
   const { data } = useSuspenseQuery(poolQueryOptions);
-  const pool = data.books;
+  // Guard against an empty/unreachable catalogue response so the game is always playable.
+  const pool = data.books.length >= 16 ? data.books : FALLBACK_BOOKS;
 
   const [stage, setStage] = useState<Stage>("intro");
   const [round, setRound] = useState(0);
