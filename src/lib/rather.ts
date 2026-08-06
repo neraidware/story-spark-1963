@@ -56,6 +56,7 @@ export function rather() {
     broken: {} as Record<string, boolean>,
     summaries: {} as Record<string, string>,
     pickedFlash: "",
+    deleted: false,
 
     init() {
       // The intro renders immediately; the book count streams in behind it.
@@ -78,6 +79,7 @@ export function rather() {
       this.summaries = {};
       this.banned = new Set<string>();
       this.pickedFlash = "";
+      this.deleted = false;
       this.failed = false;
       this.stage = "playing";
       await this.fillPair();
@@ -165,6 +167,9 @@ export function rather() {
       this.recordContrib(other, "loss");
       this.picked = [...this.picked, book];
       this.picks += 1;
+      // Committing to a book opens a fresh matchup, where a delete is
+      // available again.
+      this.deleted = false;
 
       if (book === this.leftBook) this.refillRight(other.key);
       else this.refillLeft(other.key);
@@ -172,7 +177,10 @@ export function rather() {
 
     /** I don't like `book`: ban it forever and subtract its past scores. */
     destroy(book: Book, other: Book) {
-      if (this.busy || other.key === "loading") return;
+      // The user must pick one or the other, so only one book per matchup
+      // can be deleted — you can't block both.
+      if (this.busy || this.deleted || other.key === "loading") return;
+      this.deleted = true;
       this.banned.add(book.key);
 
       const c = this.contrib[book.key];
@@ -198,6 +206,7 @@ export function rather() {
     async skip() {
       if (this.busy || this.stage !== "playing") return;
       this.failed = false;
+      this.deleted = false;
       this.leftBook = null;
       this.rightBook = null;
       await this.fillPair();
