@@ -31,9 +31,8 @@ function requestOpts(): RequestInit {
   return {
     headers: {
       Accept: "application/json",
-      "User-Agent": "WouldYouRatherRead/1.0 (reading-taste-quiz)",
     },
-    signal: timeoutSignal(6000),
+    signal: timeoutSignal(20000),
   };
 }
 
