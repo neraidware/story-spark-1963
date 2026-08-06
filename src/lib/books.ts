@@ -26,6 +26,14 @@ export const GENRES: { slug: string; label: string }[] = [
   { slug: "graphic_novels", label: "Graphic Novels" },
 ];
 
+const REQUEST_OPTS: RequestInit = {
+  headers: {
+    Accept: "application/json",
+    "User-Agent": "WouldYouRatherRead/1.0 (reading-taste-quiz)",
+  },
+  signal: AbortSignal.timeout(6000),
+};
+
 type SubjectWork = {
   key?: string;
   title?: string;
@@ -34,33 +42,83 @@ type SubjectWork = {
   authors?: { name?: string }[];
 };
 
-async function fetchSubject(slug: string, label: string): Promise<Book[]> {
-  try {
-    const res = await fetch(
-      `https://openlibrary.org/subjects/${slug}.json?limit=24&ebooks=false`,
-      {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "WouldYouRatherRead/1.0 (reading-taste-quiz)",
-        },
-        signal: AbortSignal.timeout(6000),
-      },
-    );
-    if (!res.ok) return [];
-    const json = (await res.json()) as { works?: SubjectWork[] };
-    return (json.works ?? [])
-      .filter((w) => w.key && w.title && w.cover_id)
-      .map((w) => ({
-        key: w.key as string,
-        title: w.title as string,
+/**
+ * How many works Open Library lists under each genre. Fetched once on load so
+ * the intro can show a real book count without pulling any book data itself.
+ */
+export async function fetchGenreCounts(): Promise<Record<string, number>> {
+  const entries = await Promise.all(
+    GENRES.map(async (g) => {
+      try {
+        const res = await fetch(
+          `https://openlibrary.org/subjects/${g.slug}.json?limit=0`,
+          REQUEST_OPTS,
+        );
+        if (!res.ok) return [g.slug, 0] as const;
+        const json = (await res.json()) as { work_count?: number };
+        return [g.slug, json.work_count ?? 0] as const;
+      } catch {
+        return [g.slug, 0] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+/**
+ * Pick one random, real book from a genre's subject page. The "database" is
+ * the Open Library catalogue itself: a random offset into the genre's work
+ * list is our random id, then we read that single book's entry back.
+ */
+export async function fetchRandomBook(
+  genre: { slug: string; label: string },
+  workCount: number,
+  seen: Set<string>,
+): Promise<Book | null> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const maxOffset = Math.max(0, Math.min(workCount - 1, 4000));
+    const offset = Math.floor(Math.random() * (maxOffset + 1));
+    try {
+      const res = await fetch(
+        `https://openlibrary.org/subjects/${genre.slug}.json?limit=1&offset=${offset}`,
+        REQUEST_OPTS,
+      );
+      if (!res.ok) continue;
+      const json = (await res.json()) as { works?: SubjectWork[] };
+      const w = json.works?.[0];
+      if (!w?.key || !w.title || !w.cover_id) continue;
+      const key = w.key;
+      if (seen.has(key)) continue;
+      return {
+        key,
+        title: w.title,
         author: w.authors?.[0]?.name ?? "Unknown author",
         coverUrl: `https://covers.openlibrary.org/b/id/${w.cover_id}-L.jpg`,
-        genre: label,
-        genreSlug: slug,
+        genre: genre.label,
+        genreSlug: genre.slug,
         year: w.first_publish_year ?? null,
-      }));
+      };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+/** Pull a book's blurb from its work record for the summary line on the card. */
+export async function fetchDescription(key: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://openlibrary.org/works/${key}.json`, REQUEST_OPTS);
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      description?: string | { value?: string } | null;
+    };
+    const d = json.description;
+    const raw = typeof d === "string" ? d : d?.value;
+    if (!raw) return null;
+    return raw.replace(/\s+/g, " ").trim();
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -87,27 +145,4 @@ export function dedupeByTitle(books: Book[]): Book[] {
     seen.add(key);
     return true;
   });
-}
-
-/**
- * Pull a few books per genre from the Open Library API, then flatten into one
- * shuffled pool. Runs in the browser, so it silently degrades to [] if the
- * API is unreachable — callers fall back to FALLBACK_BOOKS.
- */
-export async function buildBookPool(): Promise<Book[]> {
-  const results = await Promise.all(GENRES.map((g) => fetchSubject(g.slug, g.label)));
-  const seen = new Set<string>();
-  const pool: Book[] = [];
-
-  // Take a few per genre so every genre stays in play, then flatten.
-  for (const list of results) {
-    for (const book of shuffle(list).slice(0, 6)) {
-      const id = book.title.toLowerCase();
-      if (seen.has(id)) continue;
-      seen.add(id);
-      pool.push(book);
-    }
-  }
-
-  return shuffle(pool);
 }

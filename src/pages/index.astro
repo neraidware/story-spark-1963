@@ -28,9 +28,9 @@ const pageDescription =
   </head>
   <body class="surface-glow min-h-screen px-4 py-10 sm:px-8 sm:py-16">
     <main x-data="rather()" x-cloak class="mx-auto w-full max-w-5xl">
-      <!-- Books are still loading from the Open Library API. -->
+      <!-- Reading the per-genre book counts from the Open Library. -->
       <section x-show="loading" class="mx-auto max-w-md py-16 text-center">
-        <p class="text-muted-foreground">Finding real books from the Open Library…</p>
+        <p class="text-muted-foreground">Counting books in the Open Library…</p>
       </section>
 
       <!-- Intro screen -->
@@ -59,13 +59,14 @@ const pageDescription =
           Start the game
         </button>
         <p class="mt-4 text-xs text-muted-foreground">
-          <span x-text="pool.length"></span> real books, pulled from the Open Library catalogue.
+          <span x-text="bookCountLabel"></span> real books to pick from, pulled fresh from the
+          Open Library catalogue.
         </p>
       </section>
 
       <!-- Gameplay (rendered only once two books are actually set, so x-for
            never sees a null book) -->
-      <template x-if="stage === 'playing' && left">
+      <template x-if="stage === 'playing' && !failed && left">
         <section class="fade-rise">
           <header class="mx-auto max-w-xl text-center">
             <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -80,11 +81,12 @@ const pageDescription =
             </div>
           </header>
 
-          <div class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
+          <div class="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-6">
             <template x-for="(book, i) in [left, right]" :key="`b-${book.key}-${round}`">
               <button
                 x-on:click="choose(book, i === 0 ? right : left)"
-                class="pick-card fade-rise group flex flex-col overflow-hidden text-left"
+                :disabled="book.key === 'loading'"
+                class="pick-card fade-rise group flex flex-col overflow-hidden text-left disabled:cursor-wait disabled:opacity-70"
               >
                 <div class="aspect-3/4 w-full overflow-hidden bg-muted">
                   <template x-if="book.coverUrl && !broken[book.key]">
@@ -98,33 +100,45 @@ const pageDescription =
                   </template>
                   <template x-if="!book.coverUrl || broken[book.key]">
                     <div
-                      class="flex h-full flex-col justify-between p-6"
-                      :style="gradient(book.genre)"
+                      class="flex h-full flex-col justify-between p-4 sm:p-6"
+                      :style="book.key !== 'loading' ? gradient(book.genre) : ''"
                     >
+                      <template x-if="book.key !== 'loading'">
+                        <span
+                          class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
+                          x-text="book.genre"
+                        ></span>
+                      </template>
                       <span
-                        class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
-                        x-text="book.genre"
-                      ></span>
-                      <span
-                        class="font-display text-2xl leading-tight font-semibold text-foreground/85"
+                        class="font-display text-xl leading-tight font-semibold sm:text-2xl"
+                        :class="book.key === 'loading' ? 'animate-pulse text-muted-foreground' : 'text-foreground/85'"
                         x-text="book.title"
                       ></span>
                     </div>
                   </template>
                 </div>
 
-                <div class="flex flex-1 flex-col gap-1 p-5">
+                <div class="flex flex-1 flex-col gap-1 p-4 sm:p-5">
                   <span
-                    class="w-fit rounded-full bg-highlight px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-highlight-foreground"
+                    class="w-fit rounded-full bg-highlight px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-highlight-foreground sm:px-3 sm:py-1"
                     x-text="book.genre"
                   ></span>
-                  <h2 class="mt-2 text-lg leading-snug font-semibold" x-text="book.title"></h2>
+                  <h2
+                    class="mt-1.5 line-clamp-2 text-base leading-snug font-semibold sm:text-lg"
+                    x-text="book.title"
+                  ></h2>
                   <p class="text-sm text-muted-foreground">
                     <span x-text="book.author"></span>
                     <template x-if="book.year">
                       <span x-text="` · ${book.year}`"></span>
                     </template>
                   </p>
+                  <template x-if="summary(book)">
+                    <p
+                      class="line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm"
+                      x-text="summary(book)"
+                    ></p>
+                  </template>
                 </div>
               </button>
             </template>
@@ -149,9 +163,15 @@ const pageDescription =
         </section>
       </template>
 
-      <!-- Safety net if the pool is somehow too small to play -->
-      <section x-show="stage === 'playing' && !left" class="mx-auto max-w-md py-16 text-center">
-        <p class="text-muted-foreground">Not enough books to play right now.</p>
+      <!-- Retry if the Open Library API can't serve a book right now -->
+      <section x-show="stage === 'playing' && failed" class="mx-auto max-w-md py-16 text-center">
+        <p class="text-muted-foreground">Couldn't pull a book from the Open Library just now.</p>
+        <button
+          x-on:click="start()"
+          class="mt-6 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-105"
+        >
+          Try again
+        </button>
       </section>
 
       <!-- Summary -->
