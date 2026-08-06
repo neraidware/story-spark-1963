@@ -33,8 +33,21 @@ function requestOpts(): RequestInit {
       Accept: "application/json",
       "User-Agent": "WouldYouRatherRead/1.0 (reading-taste-quiz)",
     },
-    signal: AbortSignal.timeout(6000),
+    signal: timeoutSignal(6000),
   };
+}
+
+/**
+ * Abort signal that fires after `ms`. Uses AbortSignal.timeout when available,
+ * but falls back to a manual timer so older browsers/webviews still work.
+ */
+function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
 }
 
 type SubjectWork = {
