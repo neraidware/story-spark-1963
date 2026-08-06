@@ -95,7 +95,7 @@ const pageDescription =
                 class="pick-card fade-rise group flex flex-col overflow-hidden"
                 :class="pickedFlash === book.key ? 'card-picked' : ''"
               >
-                <div class="aspect-3/4 w-full overflow-hidden bg-muted">
+                <div class="aspect-4/5 w-full overflow-hidden bg-muted">
                   <template x-if="book.key === 'loading'">
                     <div class="skeleton h-full w-full"></div>
                   </template>
@@ -151,27 +151,27 @@ const pageDescription =
                       </p>
                       <template x-if="summary(book)">
                         <p
-                          class="line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm"
+                          class="line-clamp-4 text-[0.8rem] leading-relaxed text-muted-foreground sm:text-sm"
                           x-text="summary(book)"
                         ></p>
                       </template>
                     </div>
                   </template>
 
-                  <div class="mt-4 grid grid-cols-2 gap-2">
+                  <div class="mt-4 flex items-center justify-center gap-2">
                     <button
                       x-on:click="like(book, i === 0 ? right : left)"
                       :disabled="busy || book.key === 'loading'"
                       aria-label="I like this book more than the other"
                       title="I like this book more than the other"
-                      class="flex aspect-square w-full items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:brightness-105 disabled:cursor-wait disabled:opacity-45"
+                      class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:brightness-105 disabled:cursor-wait disabled:opacity-45 sm:h-9 sm:w-9"
                     >
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2.5"
-                        class="h-4 w-4"
+                        class="h-3.5 w-3.5"
                         aria-hidden="true"
                       >
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -182,14 +182,14 @@ const pageDescription =
                       :disabled="busy || deleted || book.key === 'loading'"
                       aria-label="I don't like this book"
                       title="I don't like this book"
-                      class="flex aspect-square w-full items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition hover:border-destructive/40 hover:text-destructive disabled:cursor-wait disabled:opacity-45"
+                      class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition hover:border-destructive/40 hover:text-destructive disabled:cursor-wait disabled:opacity-45 sm:h-9 sm:w-9"
                     >
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
-                        class="h-4 w-4"
+                        class="h-3.5 w-3.5"
                         aria-hidden="true"
                       >
                         <path
@@ -205,14 +205,7 @@ const pageDescription =
             </template>
           </div>
 
-          <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-            <button
-              x-on:click="skip()"
-              :disabled="busy"
-              class="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-wait disabled:opacity-45"
-            >
-              Neither — skip this pair
-            </button>
+          <div class="mt-8 text-center">
             <button
               x-on:click="finish()"
               class="rounded-full px-6 py-3 text-sm font-semibold transition active:scale-[0.98]"
@@ -244,7 +237,7 @@ const pageDescription =
             Keyboard: <kbd class="font-sans">1</kbd>/<kbd class="font-sans">←</kbd> like the left
             book, <kbd class="font-sans">2</kbd>/<kbd class="font-sans">→</kbd> like the right,
             <kbd class="font-sans">D</kbd>/<kbd class="font-sans">X</kbd> to remove a book you
-            don't like, <kbd class="font-sans">S</kbd> to skip.
+            don't like.
           </p>
         </section>
       </template>

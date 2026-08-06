@@ -202,16 +202,6 @@ export function rather() {
       this.contrib[book.key] = c;
     },
 
-    /** Neither book appeals: draw two fresh ones without burning a comparison. */
-    async skip() {
-      if (this.busy || this.stage !== "playing") return;
-      this.failed = false;
-      this.deleted = false;
-      this.leftBook = null;
-      this.rightBook = null;
-      await this.fillPair();
-    },
-
     onKey(e: KeyboardEvent) {
       if (this.stage !== "playing" || this.failed || this.busy) return;
       const left = this.leftBook;
@@ -229,9 +219,6 @@ export function rather() {
       } else if (e.key === "x" || e.key === "X") {
         e.preventDefault();
         this.destroy(right, left);
-      } else if (e.key === "s" || e.key === "S") {
-        e.preventDefault();
-        this.skip();
       } else if (e.key === "f" || e.key === "F") {
         this.finish();
       }
