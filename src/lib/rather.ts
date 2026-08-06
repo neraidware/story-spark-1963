@@ -57,6 +57,7 @@ export function rather() {
     summaries: {} as Record<string, string>,
     pickedFlash: "",
     deleted: false,
+    detailsBook: null as Book | null,
 
     init() {
       // The intro renders immediately; the book count streams in behind it.
@@ -203,6 +204,11 @@ export function rather() {
     },
 
     onKey(e: KeyboardEvent) {
+      // While the details popup is open, the only shortcut is closing it.
+      if (this.detailsBook) {
+        if (e.key === "Escape") this.closeDetails();
+        return;
+      }
       if (this.stage !== "playing" || this.failed || this.busy) return;
       const left = this.leftBook;
       const right = this.rightBook;
@@ -234,6 +240,16 @@ export function rather() {
 
     summary(book: Book) {
       return this.summaries[book.key] ?? "";
+    },
+
+    openDetails(book: Book) {
+      if (book.key === "loading" || this.busy) return;
+      this.detailsBook = book;
+      if (!this.summaries[book.key]) this.loadSummary(book.key);
+    },
+
+    closeDetails() {
+      this.detailsBook = null;
     },
 
     workUrl(key: string) {
