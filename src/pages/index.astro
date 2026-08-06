@@ -26,8 +26,8 @@ const pageDescription =
       rel="stylesheet"
     />
   </head>
-  <body x-cloak class="surface-glow min-h-screen px-4 py-10 sm:px-8 sm:py-16">
-    <main x-data="rather()" class="mx-auto w-full max-w-5xl">
+  <body class="surface-glow min-h-screen px-4 py-10 sm:px-8 sm:py-16">
+    <main x-data="rather()" x-cloak class="mx-auto w-full max-w-5xl">
       <!-- Books are still loading from the Open Library API. -->
       <section x-show="loading" class="mx-auto max-w-md py-16 text-center">
         <p class="text-muted-foreground">Finding real books from the Open Library…</p>
@@ -63,85 +63,91 @@ const pageDescription =
         </p>
       </section>
 
-      <!-- Gameplay -->
-      <section x-show="stage === 'playing' && left" class="fade-rise">
-        <header class="mx-auto max-w-xl text-center">
-          <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Round <span x-text="round + 1"></span> of <span x-text="MAX_ROUNDS"></span>
-          </p>
-          <h1 class="mt-2 text-2xl font-bold sm:text-3xl">Which would you rather read?</h1>
-          <div class="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              class="h-full rounded-full bg-primary transition-all duration-500"
-              :style="`width: ${progress}%`"
-            ></div>
-          </div>
-        </header>
+      <!-- Gameplay (rendered only once two books are actually set, so x-for
+           never sees a null book) -->
+      <template x-if="stage === 'playing' && left">
+        <section class="fade-rise">
+          <header class="mx-auto max-w-xl text-center">
+            <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Round <span x-text="round + 1"></span> of <span x-text="MAX_ROUNDS"></span>
+            </p>
+            <h1 class="mt-2 text-2xl font-bold sm:text-3xl">Which would you rather read?</h1>
+            <div class="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                class="h-full rounded-full bg-primary transition-all duration-500"
+                :style="`width: ${progress}%`"
+              ></div>
+            </div>
+          </header>
 
-        <div class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
-          <template x-for="(book, i) in [left, right]" :key="`b-${book.key}-${round}`">
-            <button
-              x-on:click="choose(book, i === 0 ? right : left)"
-              class="pick-card fade-rise group flex flex-col overflow-hidden text-left"
-            >
-              <div class="aspect-3/4 w-full overflow-hidden bg-muted">
-                <template x-if="book.coverUrl && !broken[book.key]">
-                  <img
-                    :src="book.coverUrl"
-                    :alt="`Cover of ${book.title}`"
-                    loading="lazy"
-                    x-on:error="markBroken(book.key)"
-                    class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                  />
-                </template>
-                <template x-if="!book.coverUrl || broken[book.key]">
-                  <div class="flex h-full flex-col justify-between p-6" :style="gradient(book.genre)">
-                    <span
-                      class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
-                      x-text="book.genre"
-                    ></span>
-                    <span
-                      class="font-display text-2xl leading-tight font-semibold text-foreground/85"
-                      x-text="book.title"
-                    ></span>
-                  </div>
-                </template>
-              </div>
-
-              <div class="flex flex-1 flex-col gap-1 p-5">
-                <span
-                  class="w-fit rounded-full bg-highlight px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-highlight-foreground"
-                  x-text="book.genre"
-                ></span>
-                <h2 class="mt-2 text-lg leading-snug font-semibold" x-text="book.title"></h2>
-                <p class="text-sm text-muted-foreground">
-                  <span x-text="book.author"></span>
-                  <template x-if="book.year">
-                    <span x-text="` · ${book.year}`"></span>
+          <div class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
+            <template x-for="(book, i) in [left, right]" :key="`b-${book.key}-${round}`">
+              <button
+                x-on:click="choose(book, i === 0 ? right : left)"
+                class="pick-card fade-rise group flex flex-col overflow-hidden text-left"
+              >
+                <div class="aspect-3/4 w-full overflow-hidden bg-muted">
+                  <template x-if="book.coverUrl && !broken[book.key]">
+                    <img
+                      :src="book.coverUrl"
+                      :alt="`Cover of ${book.title}`"
+                      loading="lazy"
+                      x-on:error="markBroken(book.key)"
+                      class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                    />
                   </template>
-                </p>
-              </div>
-            </button>
-          </template>
-        </div>
+                  <template x-if="!book.coverUrl || broken[book.key]">
+                    <div
+                      class="flex h-full flex-col justify-between p-6"
+                      :style="gradient(book.genre)"
+                    >
+                      <span
+                        class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
+                        x-text="book.genre"
+                      ></span>
+                      <span
+                        class="font-display text-2xl leading-tight font-semibold text-foreground/85"
+                        x-text="book.title"
+                      ></span>
+                    </div>
+                  </template>
+                </div>
 
-        <div class="mt-8 text-center">
-          <button
-            x-on:click="finish()"
-            :disabled="round < MIN_ROUNDS_BEFORE_FINISH"
-            class="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <template x-if="round < MIN_ROUNDS_BEFORE_FINISH">
-              <span>
-                A few more picks (<span x-text="MIN_ROUNDS_BEFORE_FINISH - round"></span> to go)
-              </span>
+                <div class="flex flex-1 flex-col gap-1 p-5">
+                  <span
+                    class="w-fit rounded-full bg-highlight px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-highlight-foreground"
+                    x-text="book.genre"
+                  ></span>
+                  <h2 class="mt-2 text-lg leading-snug font-semibold" x-text="book.title"></h2>
+                  <p class="text-sm text-muted-foreground">
+                    <span x-text="book.author"></span>
+                    <template x-if="book.year">
+                      <span x-text="` · ${book.year}`"></span>
+                    </template>
+                  </p>
+                </div>
+              </button>
             </template>
-            <template x-if="round >= MIN_ROUNDS_BEFORE_FINISH">
-              <span>I'm happy — show my results</span>
-            </template>
-          </button>
-        </div>
-      </section>
+          </div>
+
+          <div class="mt-8 text-center">
+            <button
+              x-on:click="finish()"
+              :disabled="round < MIN_ROUNDS_BEFORE_FINISH"
+              class="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <template x-if="round < MIN_ROUNDS_BEFORE_FINISH">
+                <span>
+                  A few more picks (<span x-text="MIN_ROUNDS_BEFORE_FINISH - round"></span> to go)
+                </span>
+              </template>
+              <template x-if="round >= MIN_ROUNDS_BEFORE_FINISH">
+                <span>I'm happy — show my results</span>
+              </template>
+            </button>
+          </div>
+        </section>
+      </template>
 
       <!-- Safety net if the pool is somehow too small to play -->
       <section x-show="stage === 'playing' && !left" class="mx-auto max-w-md py-16 text-center">
@@ -168,18 +174,18 @@ const pageDescription =
           <div class="card-soft p-6 lg:col-span-3">
             <h2 class="text-lg font-semibold">Genres you leaned into</h2>
             <ul class="mt-5 space-y-4">
-              <template x-for="([genre, score], index) in ranked" :key="genre">
+              <template x-for="(entry, index) in ranked" :key="entry[0]">
                 <li>
                   <div class="flex items-baseline justify-between text-sm">
                     <span class="font-medium">
-                      <span x-text="index + 1"></span>. <span x-text="genre"></span>
+                      <span x-text="index + 1"></span>. <span x-text="entry[0]"></span>
                     </span>
-                    <span class="text-muted-foreground" x-text="matchPercent(score)"></span>
+                    <span class="text-muted-foreground" x-text="matchPercent(entry[1])"></span>
                   </div>
                   <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
                     <div
                       class="h-full rounded-full bg-primary"
-                      :style="`width: ${barWidth(score)}`"
+                      :style="`width: ${barWidth(entry[1])}`"
                     ></div>
                   </div>
                 </li>
