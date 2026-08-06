@@ -184,3 +184,43 @@
     transform: none;
   }
 }
+
+/* Shimmering placeholder for the card whose book is still being fetched. */
+@utility skeleton {
+  background-color: var(--color-muted);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.45) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Quick nudge on the card you just picked. */
+@utility card-picked {
+  animation: card-picked 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes card-picked {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: var(--shadow-lift);
+  }
+}

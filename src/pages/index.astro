@@ -4,7 +4,7 @@ import favicon from "../favicon.ico";
 
 const pageTitle = "Would You Rather Read? — Find Your Book Taste";
 const pageDescription =
-  "Pick between two books, 20 times, and discover which genres and topics you'd actually enjoy reading. Built for brand-new readers.";
+  "Two books at a time — like the ones that pull you in, delete the ones that don't, and discover which genres you'd actually enjoy reading. Built for brand-new readers.";
 ---
 
 <!doctype html>
@@ -27,17 +27,14 @@ const pageDescription =
     />
   </head>
   <body class="surface-glow min-h-screen px-4 py-10 sm:px-8 sm:py-16">
-    <main x-data="rather()" x-cloak class="mx-auto w-full max-w-5xl">
-      <!-- Reading the per-genre book counts from the Open Library. -->
-      <section x-show="loading" class="mx-auto max-w-md py-16 text-center">
-        <p class="text-muted-foreground">Counting books in the Open Library…</p>
-      </section>
-
+    <main
+      x-data="rather()"
+      x-cloak
+      x-on:keydown.window="onKey($event)"
+      class="mx-auto w-full max-w-5xl"
+    >
       <!-- Intro screen -->
-      <section
-        x-show="stage === 'intro' && !loading"
-        class="fade-rise mx-auto max-w-2xl text-center"
-      >
+      <section x-show="stage === 'intro'" class="fade-rise mx-auto max-w-2xl text-center">
         <span
           class="inline-flex items-center gap-2 rounded-full bg-highlight px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-highlight-foreground"
         >
@@ -48,9 +45,8 @@ const pageDescription =
           or <span class="text-accent-foreground">that</span>?
         </h1>
         <p class="mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-          Two books at a time. Pick the one that pulls you in — no wrong answers, no reading
-          required. After up to <span x-text="MAX_ROUNDS"></span> quick choices we'll show you the
-          genres and topics your gut keeps reaching for.
+          Two books at a time. Like the one that pulls you in — or delete the ones that don't.
+          Go as long as you like, then see the genres and topics your gut keeps reaching for.
         </p>
         <button
           x-on:click="start()"
@@ -58,7 +54,7 @@ const pageDescription =
         >
           Start the game
         </button>
-        <p class="mt-4 text-xs text-muted-foreground">
+        <p class="mt-4 text-xs text-muted-foreground" x-show="!loading">
           <span x-text="bookCountLabel"></span> real books to pick from, pulled fresh from the
           Open Library catalogue.
         </p>
@@ -69,27 +65,41 @@ const pageDescription =
       <template x-if="stage === 'playing' && !failed && left">
         <section class="fade-rise">
           <header class="mx-auto max-w-xl text-center">
-            <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Round <span x-text="round + 1"></span> of <span x-text="MAX_ROUNDS"></span>
+            <p
+              role="status"
+              aria-live="polite"
+              class="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+            >
+              Picks: <span x-text="picks"></span>
             </p>
             <h1 class="mt-2 text-2xl font-bold sm:text-3xl">Which would you rather read?</h1>
-            <div class="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                class="h-full rounded-full bg-primary transition-all duration-500"
-                :style="`width: ${progress}%`"
-              ></div>
+            <div class="mt-5 flex items-center justify-center gap-3">
+              <div class="h-1.5 w-36 overflow-hidden rounded-full bg-muted sm:w-48">
+                <div
+                  class="h-full rounded-full bg-primary transition-all duration-500"
+                  :style="`width: ${exploredPct}%`"
+                ></div>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                Genres explored:
+                <span class="font-semibold text-foreground" x-text="exploredCount"></span> of
+                <span x-text="genreTotal"></span>
+              </p>
             </div>
+            <p class="mt-3 text-xs text-muted-foreground" x-text="hint()"></p>
           </header>
 
           <div class="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-6">
-            <template x-for="(book, i) in [left, right]" :key="`b-${book.key}-${round}`">
-              <button
-                x-on:click="choose(book, i === 0 ? right : left)"
-                :disabled="book.key === 'loading'"
-                class="pick-card fade-rise group flex flex-col overflow-hidden text-left disabled:cursor-wait disabled:opacity-70"
+            <template x-for="(book, i) in [left, right]" :key="`b-${i}-${book.key}`">
+              <div
+                class="pick-card fade-rise group flex flex-col overflow-hidden"
+                :class="pickedFlash === book.key ? 'card-picked' : ''"
               >
                 <div class="aspect-3/4 w-full overflow-hidden bg-muted">
-                  <template x-if="book.coverUrl && !broken[book.key]">
+                  <template x-if="book.key === 'loading'">
+                    <div class="skeleton h-full w-full"></div>
+                  </template>
+                  <template x-if="book.key !== 'loading' && book.coverUrl && !broken[book.key]">
                     <img
                       :src="book.coverUrl"
                       :alt="`Cover of ${book.title}`"
@@ -98,68 +108,144 @@ const pageDescription =
                       class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                     />
                   </template>
-                  <template x-if="!book.coverUrl || broken[book.key]">
+                  <template x-if="book.key !== 'loading' && (!book.coverUrl || broken[book.key])">
                     <div
                       class="flex h-full flex-col justify-between p-4 sm:p-6"
-                      :style="book.key !== 'loading' ? gradient(book.genre) : ''"
+                      :style="gradient(book.genre)"
                     >
-                      <template x-if="book.key !== 'loading'">
-                        <span
-                          class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
-                          x-text="book.genre"
-                        ></span>
-                      </template>
+                      <span
+                        class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
+                        x-text="book.genre"
+                      ></span>
                       <span
                         class="font-display text-xl leading-tight font-semibold sm:text-2xl"
-                        :class="book.key === 'loading' ? 'animate-pulse text-muted-foreground' : 'text-foreground/85'"
                         x-text="book.title"
                       ></span>
                     </div>
                   </template>
                 </div>
 
-                <div class="flex flex-1 flex-col gap-1 p-4 sm:p-5">
-                  <span
-                    class="w-fit rounded-full bg-highlight px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-highlight-foreground sm:px-3 sm:py-1"
-                    x-text="book.genre"
-                  ></span>
-                  <h2
-                    class="mt-1.5 line-clamp-2 text-base leading-snug font-semibold sm:text-lg"
-                    x-text="book.title"
-                  ></h2>
-                  <p class="text-sm text-muted-foreground">
-                    <span x-text="book.author"></span>
-                    <template x-if="book.year">
-                      <span x-text="` · ${book.year}`"></span>
-                    </template>
-                  </p>
-                  <template x-if="summary(book)">
-                    <p
-                      class="line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm"
-                      x-text="summary(book)"
-                    ></p>
+                <div class="flex flex-1 flex-col p-4 sm:p-5">
+                  <template x-if="book.key === 'loading'">
+                    <div class="flex flex-col gap-2 py-1">
+                      <div class="skeleton h-4 w-16 rounded-full"></div>
+                      <div class="skeleton h-4 w-4/5 rounded"></div>
+                      <div class="skeleton h-3 w-1/2 rounded"></div>
+                    </div>
                   </template>
+                  <template x-if="book.key !== 'loading'">
+                    <div class="flex flex-col gap-1">
+                      <span
+                        class="w-fit rounded-full bg-highlight px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-highlight-foreground sm:px-3 sm:py-1"
+                        x-text="book.genre"
+                      ></span>
+                      <h2
+                        class="mt-1.5 line-clamp-2 text-base leading-snug font-semibold sm:text-lg"
+                        x-text="book.title"
+                      ></h2>
+                      <p class="text-sm text-muted-foreground">
+                        <span x-text="book.author"></span>
+                        <template x-if="book.year">
+                          <span x-text="` · ${book.year}`"></span>
+                        </template>
+                      </p>
+                      <template x-if="summary(book)">
+                        <p
+                          class="line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm"
+                          x-text="summary(book)"
+                        ></p>
+                      </template>
+                    </div>
+                  </template>
+
+                  <div class="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      x-on:click="like(book, i === 0 ? right : left)"
+                      :disabled="busy || book.key === 'loading'"
+                      aria-label="I like this book more than the other"
+                      class="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-2 py-2 text-xs font-semibold text-primary-foreground transition hover:brightness-105 disabled:cursor-wait disabled:opacity-45"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        class="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Like</span>
+                    </button>
+                    <button
+                      x-on:click="destroy(book, i === 0 ? right : left)"
+                      :disabled="busy || book.key === 'loading'"
+                      aria-label="I don't like this book"
+                      class="inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-card px-2 py-2 text-xs font-semibold text-muted-foreground transition hover:border-destructive/40 hover:text-destructive disabled:cursor-wait disabled:opacity-45"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        class="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14M10 11v6M14 11v6"
+                        />
+                      </svg>
+                      <span>Not for me</span>
+                    </button>
+                  </div>
                 </div>
-              </button>
+              </div>
             </template>
           </div>
 
-          <div class="mt-8 text-center">
+          <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+            <button
+              x-on:click="skip()"
+              :disabled="busy"
+              class="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-wait disabled:opacity-45"
+            >
+              Neither — skip this pair
+            </button>
             <button
               x-on:click="finish()"
-              :disabled="round < MIN_ROUNDS_BEFORE_FINISH"
-              class="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+              class="rounded-full px-6 py-3 text-sm font-semibold transition active:scale-[0.98]"
+              :class="picks > 30
+                ? 'bg-green-600 text-white shadow-soft hover:brightness-105'
+                : 'border border-border bg-card text-foreground hover:bg-muted'"
             >
-              <template x-if="round < MIN_ROUNDS_BEFORE_FINISH">
-                <span>
-                  A few more picks (<span x-text="MIN_ROUNDS_BEFORE_FINISH - round"></span> to go)
+              <template x-if="picks > 30">
+                <span class="inline-flex items-center gap-2">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    class="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Enough data collected
                 </span>
               </template>
-              <template x-if="round >= MIN_ROUNDS_BEFORE_FINISH">
+              <template x-if="picks <= 30">
                 <span>I'm happy — show my results</span>
               </template>
             </button>
           </div>
+          <p class="mt-4 hidden text-center text-xs text-muted-foreground sm:block">
+            Keyboard: <kbd class="font-sans">1</kbd>/<kbd class="font-sans">←</kbd> like the left
+            book, <kbd class="font-sans">2</kbd>/<kbd class="font-sans">→</kbd> like the right,
+            <kbd class="font-sans">D</kbd>/<kbd class="font-sans">X</kbd> to remove a book you
+            don't like, <kbd class="font-sans">S</kbd> to skip.
+          </p>
         </section>
       </template>
 
@@ -180,13 +266,17 @@ const pageDescription =
           <span
             class="inline-flex rounded-full bg-accent px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent-foreground"
           >
-            <span x-text="round"></span> picks in
+            <span x-text="picks === 1 ? '1 pick' : picks + ' picks'"></span>
+            · <span x-text="confidenceLabel()"></span>
           </span>
-          <h1 class="mt-5 text-3xl font-bold sm:text-4xl">Your reading taste, roughly</h1>
+          <h1 class="mt-5 text-3xl font-bold sm:text-4xl">Your reading taste</h1>
           <p class="mt-3 text-muted-foreground">
             Start with
             <strong class="text-foreground" x-text="ranked[0] ? ranked[0][0] : 'anything you like'"></strong>
             — it came out on top of your choices.
+          </p>
+          <p class="mt-2 text-xs text-muted-foreground">
+            More picks means a more reliable result — replay and go longer for a deeper read.
           </p>
         </header>
 
@@ -215,22 +305,40 @@ const pageDescription =
 
           <div class="card-soft p-6 lg:col-span-2">
             <h2 class="text-lg font-semibold">Books to try first</h2>
-            <ul class="mt-4 space-y-3">
+            <ul class="mt-4 space-y-2">
               <template x-for="book in favourites" :key="book.key">
-                <li class="flex gap-3">
-                  <template x-if="book.coverUrl">
-                    <img
-                      :src="book.coverUrl"
-                      :alt="`Cover of ${book.title}`"
-                      loading="lazy"
-                      class="h-16 w-11 flex-none rounded-md object-cover"
-                    />
-                  </template>
-                  <div class="min-w-0">
-                    <p class="truncate text-sm font-medium" x-text="book.title"></p>
-                    <p class="truncate text-xs text-muted-foreground" x-text="book.author"></p>
-                    <p class="mt-0.5 text-xs text-primary" x-text="book.genre"></p>
-                  </div>
+                <li>
+                  <a
+                    :href="workUrl(book.key)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group flex items-center gap-3 rounded-xl p-2 transition hover:bg-muted"
+                  >
+                    <template x-if="book.coverUrl">
+                      <img
+                        :src="book.coverUrl"
+                        :alt="`Cover of ${book.title}`"
+                        loading="lazy"
+                        class="h-16 w-11 flex-none rounded-md object-cover"
+                      />
+                    </template>
+                    <template x-if="!book.coverUrl">
+                      <div
+                        class="h-16 w-11 flex-none rounded-md"
+                        :style="gradient(book.genre)"
+                      ></div>
+                    </template>
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-medium" x-text="book.title"></p>
+                      <p class="truncate text-xs text-muted-foreground" x-text="book.author"></p>
+                      <p class="mt-0.5 text-xs text-primary" x-text="book.genre"></p>
+                    </div>
+                    <span
+                      class="flex-none text-xs font-semibold text-muted-foreground transition group-hover:text-primary"
+                    >
+                      Read ↗
+                    </span>
+                  </a>
                 </li>
               </template>
             </ul>

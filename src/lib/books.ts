@@ -88,7 +88,7 @@ export async function fetchGenreCounts(): Promise<Record<string, number>> {
 export async function fetchRandomBook(
   genre: { slug: string; label: string },
   workCount: number,
-  seen: Set<string>,
+  blocked: Set<string>,
 ): Promise<Book | null> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const maxOffset = Math.max(0, Math.min(workCount - 1, 4000));
@@ -103,7 +103,7 @@ export async function fetchRandomBook(
       const w = json.works?.[0];
       if (!w?.key || !w.title || !w.cover_id) continue;
       const key = w.key;
-      if (seen.has(key)) continue;
+      if (blocked.has(key)) continue;
       return {
         key,
         title: w.title,
