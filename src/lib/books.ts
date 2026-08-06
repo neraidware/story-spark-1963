@@ -26,13 +26,16 @@ export const GENRES: { slug: string; label: string }[] = [
   { slug: "graphic_novels", label: "Graphic Novels" },
 ];
 
-const REQUEST_OPTS: RequestInit = {
-  headers: {
-    Accept: "application/json",
-    "User-Agent": "WouldYouRatherRead/1.0 (reading-taste-quiz)",
-  },
-  signal: AbortSignal.timeout(6000),
-};
+/** Fresh request options per call — the timeout signal must not be shared. */
+function requestOpts(): RequestInit {
+  return {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "WouldYouRatherRead/1.0 (reading-taste-quiz)",
+    },
+    signal: AbortSignal.timeout(6000),
+  };
+}
 
 type SubjectWork = {
   key?: string;
@@ -52,7 +55,7 @@ export async function fetchGenreCounts(): Promise<Record<string, number>> {
       try {
         const res = await fetch(
           `https://openlibrary.org/subjects/${g.slug}.json?limit=0`,
-          REQUEST_OPTS,
+          requestOpts(),
         );
         if (!res.ok) return [g.slug, 0] as const;
         const json = (await res.json()) as { work_count?: number };
@@ -81,7 +84,7 @@ export async function fetchRandomBook(
     try {
       const res = await fetch(
         `https://openlibrary.org/subjects/${genre.slug}.json?limit=1&offset=${offset}`,
-        REQUEST_OPTS,
+        requestOpts(),
       );
       if (!res.ok) continue;
       const json = (await res.json()) as { works?: SubjectWork[] };
@@ -108,7 +111,9 @@ export async function fetchRandomBook(
 /** Pull a book's blurb from its work record for the summary line on the card. */
 export async function fetchDescription(key: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://openlibrary.org/works/${key}.json`, REQUEST_OPTS);
+    const id = key.split("/").pop();
+    if (!id) return null;
+    const res = await fetch(`https://openlibrary.org/works/${id}.json`, requestOpts());
     if (!res.ok) return null;
     const json = (await res.json()) as {
       description?: string | { value?: string } | null;
