@@ -1,4 +1,4 @@
-import type { Book } from "./books.server";
+import type { Book } from "./books";
 
 type Seed = [title: string, author: string, year: number];
 
@@ -113,6 +113,10 @@ const SLUGS: Record<string, string> = {
   "Graphic Novels": "graphic_novels",
 };
 
+/**
+ * A hand-picked, dependency-free catalogue used when the Open Library API is
+ * slow, rate-limited, or unreachable, so the game is always playable.
+ */
 export const FALLBACK_BOOKS: Book[] = Object.entries(SEED).flatMap(([genre, books]) =>
   books.map(([title, author, year]) => ({
     key: `fallback:${title}`,

@@ -1,5 +1,3 @@
-import { FALLBACK_BOOKS } from "./books-fallback";
-
 export type Book = {
   key: string;
   title: string;
@@ -26,17 +24,14 @@ export const GENRES: { slug: string; label: string }[] = [
   { slug: "humor", label: "Humor" },
   { slug: "young_adult", label: "Young Adult" },
   { slug: "graphic_novels", label: "Graphic Novels" },
-  { slug: "detective_and_mystery_stories", label: "Detective Fiction" },
 ];
 
-type SubjectResponse = {
-  works?: {
-    key?: string;
-    title?: string;
-    cover_id?: number | null;
-    first_publish_year?: number | null;
-    authors?: { name?: string }[];
-  }[];
+type SubjectWork = {
+  key?: string;
+  title?: string;
+  cover_id?: number | null;
+  first_publish_year?: number | null;
+  authors?: { name?: string }[];
 };
 
 async function fetchSubject(slug: string, label: string): Promise<Book[]> {
@@ -52,9 +47,8 @@ async function fetchSubject(slug: string, label: string): Promise<Book[]> {
       },
     );
     if (!res.ok) return [];
-    const json = (await res.json()) as SubjectResponse;
-    const works = json.works ?? [];
-    return works
+    const json = (await res.json()) as { works?: SubjectWork[] };
+    return (json.works ?? [])
       .filter((w) => w.key && w.title && w.cover_id)
       .map((w) => ({
         key: w.key as string,
@@ -70,15 +64,36 @@ async function fetchSubject(slug: string, label: string): Promise<Book[]> {
   }
 }
 
-function shuffle<T>(items: T[]): T[] {
+export function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j] as T, copy[i] as T];
+    [copy[i] as T, copy[j] as T] = [copy[j] as T, copy[i] as T];
   }
   return copy;
 }
 
+export function hashHue(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) % 360;
+  return hash;
+}
+
+export function dedupeByTitle(books: Book[]): Book[] {
+  const seen = new Set<string>();
+  return books.filter((b) => {
+    const key = b.title.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Pull a few books per genre from the Open Library API, then flatten into one
+ * shuffled pool. Runs in the browser, so it silently degrades to [] if the
+ * API is unreachable — callers fall back to FALLBACK_BOOKS.
+ */
 export async function buildBookPool(): Promise<Book[]> {
   const results = await Promise.all(GENRES.map((g) => fetchSubject(g.slug, g.label)));
   const seen = new Set<string>();
@@ -90,15 +105,6 @@ export async function buildBookPool(): Promise<Book[]> {
       const id = book.title.toLowerCase();
       if (seen.has(id)) continue;
       seen.add(id);
-      pool.push(book);
-    }
-  }
-
-  // Open Library can be slow, rate-limited, or unreachable: keep the game playable.
-  if (pool.length < 16) {
-    const seen2 = new Set(pool.map((b) => b.title.toLowerCase()));
-    for (const book of FALLBACK_BOOKS) {
-      if (seen2.has(book.title.toLowerCase())) continue;
       pool.push(book);
     }
   }

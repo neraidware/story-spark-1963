@@ -1,20 +1,52 @@
-# Genre Explorer
+# Genre Explorer — "Would You Rather Read?"
 
-I need a webpage/webview app written in typescript using simple frameworks and libraries such as astro for proper templating, alpine for client side interactivity and htmx for server side data interaction using sqlite. No npm packages should be used other than the ones required for the typescript runtime. We'll use tailwindcss. 
+A "what would you rather?" page that helps brand-new readers figure out which
+books and genres they'd actually enjoy. Pick between two books up to 30 times,
+then get a summary of the genres and topics your gut kept reaching for.
 
+Built to stay simple: no React, no SPA framework, no server.
 
+## The flow
 
-This webpage should be a "what would you rather?" type of page to help someone who's just getting into reading figure out what books and genres they'd rather read.
+Open page → click **Start the game** → pick between two books → your pick is
+matched against the next challenger → repeat up to 20 rounds → see a summary of
+your most-liked genres and recommended books.
 
+## Stack
 
+- **[Astro](https://astro.build)** — static site templating, produces plain HTML.
+- **[Tailwind CSS](https://tailwindcss.com)** v4 — styling, via the `@tailwindcss/vite` plugin.
+- **[Alpine.js](https://alpinejs.dev)** — all client-side interactivity (the game logic lives in `src/lib/rather.ts`).
+- **TypeScript** — data layer and game logic.
+- Book data is fetched at runtime from the [Open Library API](https://openlibrary.org/developers/api)
+  (CORS-enabled); a hand-picked fallback catalogue in `src/lib/fallback.ts` keeps
+  the game playable offline or when the API is unreachable.
 
-The flow should be, essentially:
+## Development
 
-- Open page > Click button > Start game > Show two alternatives of books > Picked book is compared against another alternative next time > Repeat n number of times until user is satisfied or at most 30 times > In the end, a summary of the most liked genres or topics is shown
+You need [Bun](https://bun.sh) (or Node.js 20+).
 
+```sh
+bun install
+bun run dev      # http://localhost:4321
+bun run build    # static output in dist/
+bun run preview  # serve the production build locally
+```
 
+## Deploying
 
-We should also find a database of books online to determine a schematic as well
+`.github/workflows/deploy.yml` builds the site and publishes it to **GitHub Pages**
+on every push to `main`.
+
+1. Go to **Settings → Pages** for this repository.
+2. Under **Build and deployment → Source**, pick **GitHub Actions**.
+3. Push to `main` — the workflow will build and deploy the site.
+
+The workflow runs `bun install` and `bun run build`; Astro's `base` path is
+derived automatically from the repo name so assets resolve under
+`/<repo>/`, matching how GitHub Pages serves project sites.
+
+---
 
 This project was built with [Lovable](https://lovable.dev).
 
@@ -25,14 +57,3 @@ Continue developing this project in the [Lovable editor](https://lovable.dev/pro
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.
 - **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```

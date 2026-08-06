@@ -1,0 +1,234 @@
+---
+import "../styles/global.css";
+import favicon from "../favicon.ico";
+
+const pageTitle = "Would You Rather Read? — Find Your Book Taste";
+const pageDescription =
+  "Pick between two books, 20 times, and discover which genres and topics you'd actually enjoy reading. Built for brand-new readers.";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href={favicon} type="image/x-icon" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body x-cloak class="surface-glow min-h-screen px-4 py-10 sm:px-8 sm:py-16">
+    <main x-data="rather()" class="mx-auto w-full max-w-5xl">
+      <!-- Books are still loading from the Open Library API. -->
+      <section x-show="loading" class="mx-auto max-w-md py-16 text-center">
+        <p class="text-muted-foreground">Finding real books from the Open Library…</p>
+      </section>
+
+      <!-- Intro screen -->
+      <section
+        x-show="stage === 'intro' && !loading"
+        class="fade-rise mx-auto max-w-2xl text-center"
+      >
+        <span
+          class="inline-flex items-center gap-2 rounded-full bg-highlight px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-highlight-foreground"
+        >
+          For brand-new readers
+        </span>
+        <h1 class="mt-6 text-4xl font-bold leading-tight sm:text-6xl">
+          Would you rather <span class="text-primary">read this</span><br />
+          or <span class="text-accent-foreground">that</span>?
+        </h1>
+        <p class="mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
+          Two books at a time. Pick the one that pulls you in — no wrong answers, no reading
+          required. After up to <span x-text="MAX_ROUNDS"></span> quick choices we'll show you the
+          genres and topics your gut keeps reaching for.
+        </p>
+        <button
+          x-on:click="start()"
+          class="mt-9 inline-flex items-center justify-center rounded-full bg-primary px-9 py-4 text-base font-semibold text-primary-foreground shadow-soft transition hover:brightness-105 active:scale-[0.98]"
+        >
+          Start the game
+        </button>
+        <p class="mt-4 text-xs text-muted-foreground">
+          <span x-text="pool.length"></span> real books, pulled from the Open Library catalogue.
+        </p>
+      </section>
+
+      <!-- Gameplay -->
+      <section x-show="stage === 'playing' && left" class="fade-rise">
+        <header class="mx-auto max-w-xl text-center">
+          <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Round <span x-text="round + 1"></span> of <span x-text="MAX_ROUNDS"></span>
+          </p>
+          <h1 class="mt-2 text-2xl font-bold sm:text-3xl">Which would you rather read?</h1>
+          <div class="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              class="h-full rounded-full bg-primary transition-all duration-500"
+              :style="`width: ${progress}%`"
+            ></div>
+          </div>
+        </header>
+
+        <div class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
+          <template x-for="(book, i) in [left, right]" :key="`b-${book.key}-${round}`">
+            <button
+              x-on:click="choose(book, i === 0 ? right : left)"
+              class="pick-card fade-rise group flex flex-col overflow-hidden text-left"
+            >
+              <div class="aspect-3/4 w-full overflow-hidden bg-muted">
+                <template x-if="book.coverUrl && !broken[book.key]">
+                  <img
+                    :src="book.coverUrl"
+                    :alt="`Cover of ${book.title}`"
+                    loading="lazy"
+                    x-on:error="markBroken(book.key)"
+                    class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
+                </template>
+                <template x-if="!book.coverUrl || broken[book.key]">
+                  <div class="flex h-full flex-col justify-between p-6" :style="gradient(book.genre)">
+                    <span
+                      class="text-[0.68rem] font-semibold uppercase tracking-widest text-highlight-foreground"
+                      x-text="book.genre"
+                    ></span>
+                    <span
+                      class="font-display text-2xl leading-tight font-semibold text-foreground/85"
+                      x-text="book.title"
+                    ></span>
+                  </div>
+                </template>
+              </div>
+
+              <div class="flex flex-1 flex-col gap-1 p-5">
+                <span
+                  class="w-fit rounded-full bg-highlight px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-highlight-foreground"
+                  x-text="book.genre"
+                ></span>
+                <h2 class="mt-2 text-lg leading-snug font-semibold" x-text="book.title"></h2>
+                <p class="text-sm text-muted-foreground">
+                  <span x-text="book.author"></span>
+                  <template x-if="book.year">
+                    <span x-text="` · ${book.year}`"></span>
+                  </template>
+                </p>
+              </div>
+            </button>
+          </template>
+        </div>
+
+        <div class="mt-8 text-center">
+          <button
+            x-on:click="finish()"
+            :disabled="round < MIN_ROUNDS_BEFORE_FINISH"
+            class="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <template x-if="round < MIN_ROUNDS_BEFORE_FINISH">
+              <span>
+                A few more picks (<span x-text="MIN_ROUNDS_BEFORE_FINISH - round"></span> to go)
+              </span>
+            </template>
+            <template x-if="round >= MIN_ROUNDS_BEFORE_FINISH">
+              <span>I'm happy — show my results</span>
+            </template>
+          </button>
+        </div>
+      </section>
+
+      <!-- Safety net if the pool is somehow too small to play -->
+      <section x-show="stage === 'playing' && !left" class="mx-auto max-w-md py-16 text-center">
+        <p class="text-muted-foreground">Not enough books to play right now.</p>
+      </section>
+
+      <!-- Summary -->
+      <section x-show="stage === 'summary'" class="fade-rise">
+        <header class="mx-auto max-w-2xl text-center">
+          <span
+            class="inline-flex rounded-full bg-accent px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent-foreground"
+          >
+            <span x-text="round"></span> picks in
+          </span>
+          <h1 class="mt-5 text-3xl font-bold sm:text-4xl">Your reading taste, roughly</h1>
+          <p class="mt-3 text-muted-foreground">
+            Start with
+            <strong class="text-foreground" x-text="ranked[0] ? ranked[0][0] : 'anything you like'"></strong>
+            — it came out on top of your choices.
+          </p>
+        </header>
+
+        <div class="mt-10 grid gap-6 lg:grid-cols-5">
+          <div class="card-soft p-6 lg:col-span-3">
+            <h2 class="text-lg font-semibold">Genres you leaned into</h2>
+            <ul class="mt-5 space-y-4">
+              <template x-for="([genre, score], index) in ranked" :key="genre">
+                <li>
+                  <div class="flex items-baseline justify-between text-sm">
+                    <span class="font-medium">
+                      <span x-text="index + 1"></span>. <span x-text="genre"></span>
+                    </span>
+                    <span class="text-muted-foreground" x-text="matchPercent(score)"></span>
+                  </div>
+                  <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      class="h-full rounded-full bg-primary"
+                      :style="`width: ${barWidth(score)}`"
+                    ></div>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </div>
+
+          <div class="card-soft p-6 lg:col-span-2">
+            <h2 class="text-lg font-semibold">Books to try first</h2>
+            <ul class="mt-4 space-y-3">
+              <template x-for="book in favourites" :key="book.key">
+                <li class="flex gap-3">
+                  <template x-if="book.coverUrl">
+                    <img
+                      :src="book.coverUrl"
+                      :alt="`Cover of ${book.title}`"
+                      loading="lazy"
+                      class="h-16 w-11 flex-none rounded-md object-cover"
+                    />
+                  </template>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-medium" x-text="book.title"></p>
+                    <p class="truncate text-xs text-muted-foreground" x-text="book.author"></p>
+                    <p class="mt-0.5 text-xs text-primary" x-text="book.genre"></p>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-10 text-center">
+          <button
+            x-on:click="start()"
+            class="rounded-full bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-105 active:scale-[0.98]"
+          >
+            Play again
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      import Alpine from "alpinejs";
+      import { rather } from "../lib/rather";
+
+      (window as unknown as { Alpine: typeof Alpine }).Alpine = Alpine;
+      Alpine.data("rather", rather);
+      Alpine.start();
+    </script>
+  </body>
+</html>
